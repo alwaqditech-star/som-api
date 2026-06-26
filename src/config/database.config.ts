@@ -26,6 +26,10 @@ function isRemoteHost(host: string): boolean {
   return host.includes('rlwy.net') || host.includes('railway.app') || host.includes('railway.internal');
 }
 
+function envFlag(value?: string): boolean {
+  return value?.trim().toLowerCase() === 'true';
+}
+
 export function getDatabaseConfig(): DatabaseConfig {
   const databaseUrl = process.env.DATABASE_URL;
   const explicitSsl = process.env.DB_SSL;
@@ -34,8 +38,8 @@ export function getDatabaseConfig(): DatabaseConfig {
     const parsed = parseDatabaseUrl(databaseUrl);
     const database = process.env.DB_DATABASE || parsed.database;
     const ssl =
-      explicitSsl === 'true' ||
-      (explicitSsl !== 'false' &&
+      envFlag(explicitSsl) ||
+      (!explicitSsl &&
         (parsed.sslMode === 'require' ||
           parsed.sslMode === 'verify-full' ||
           isRemoteHost(parsed.host)));
@@ -51,9 +55,7 @@ export function getDatabaseConfig(): DatabaseConfig {
   }
 
   const host = process.env.DB_HOST ?? 'shinkansen.proxy.rlwy.net';
-  const ssl =
-    explicitSsl === 'true' ||
-    (explicitSsl !== 'false' && isRemoteHost(host));
+  const ssl = envFlag(explicitSsl) || (!explicitSsl && isRemoteHost(host));
 
   return {
     host,

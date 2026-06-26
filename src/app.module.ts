@@ -18,6 +18,7 @@ import { AuctionGatewayModule } from './modules/auctions/auction-gateway.module'
 import { FirebaseModule } from './modules/firebase/firebase.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ChatsModule } from './modules/chats/chats.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { ChatsModule } from './modules/chats/chats.module';
     CategoriesModule,
     AuctionGatewayModule,
   ],
+  controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

@@ -24,6 +24,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? res
           : ((res as Record<string, unknown>).message as string | string[]) ??
             message;
+    } else if (exception instanceof Error && process.env.VERCEL) {
+      message = exception.message;
     }
 
     response.status(status).json({
