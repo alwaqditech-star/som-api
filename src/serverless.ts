@@ -1,39 +1,43 @@
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
-import { configure as serverlessExpress } from '@codegenie/serverless-express';
-import express from 'express';
+import express, { Express, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 
-type ServerlessHandler = ReturnType<typeof serverlessExpress>;
-
-let cachedHandler: ServerlessHandler | null = null;
+let cachedApp: Express | null = null;
 let initError: Error | null = null;
+let initPromise: Promise<Express> | null = null;
 
-async function getHandler(): Promise<ServerlessHandler> {
-  if (cachedHandler) return cachedHandler;
+async function getApp(): Promise<Express> {
+  if (cachedApp) return cachedApp;
   if (initError) throw initError;
+  if (initPromise) return initPromise;
 
-  try {
-    const expressApp = express();
-    const app = await NestFactory.create<NestExpressApplication>(
-      AppModule,
-      new ExpressAdapter(expressApp),
-    );
-    await configureApp(app);
-    await app.init();
-    cachedHandler = serverlessExpress({ app: expressApp });
-    return cachedHandler;
-  } catch (error) {
-    initError = error instanceof Error ? error : new Error(String(error));
-    throw initError;
-  }
+  initPromise = (async () => {
+    try {
+      const expressApp = express();
+      const app = await NestFactory.create<NestExpressApplication>(
+        AppModule,
+        new ExpressAdapter(expressApp),
+      );
+      await configureApp(app);
+      await app.init();
+      cachedApp = expressApp;
+      return cachedApp;
+    } catch (error) {
+      initError = error instanceof Error ? error : new Error(String(error));
+      initPromise = null;
+      throw initError;
+    }
+  })();
+
+  return initPromise;
 }
 
-export default async function handler(req: express.Request, res: express.Response) {
+export default async function handler(req: Request, res: Response) {
   try {
-    const server = await getHandler();
-    return server(req, res);
+    const app = await getApp();
+    app(req, res);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!res.headersSent) {
