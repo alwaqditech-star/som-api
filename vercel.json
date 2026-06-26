@@ -1,17 +1,16 @@
 {
-  "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
-  "builds": [
-    {
-      "src": "dist/serverless.js",
-      "use": "@vercel/node"
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "dist/serverless.js"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ]
 }

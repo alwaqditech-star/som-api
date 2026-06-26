@@ -54,4 +54,9 @@ export async function configureApp(app: NestExpressApplication): Promise<void> {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
+
+  const http = app.getHttpAdapter().getInstance();
+  http.get('/', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', api: '/api/v1', docs: '/api/docs' });
+  });
 }
