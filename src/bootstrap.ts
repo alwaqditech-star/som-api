@@ -2,13 +2,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { NextFunction, Request, Response } from 'express';
-import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { getUploadsRoot } from './common/uploads-path';
 
 export async function configureApp(app: NestExpressApplication): Promise<void> {
-  const uploadsPath = process.env.VERCEL
-    ? join('/tmp', 'uploads')
-    : join(process.cwd(), 'uploads');
+  const uploadsPath = getUploadsRoot();
 
   if (!existsSync(uploadsPath)) mkdirSync(uploadsPath, { recursive: true });
 

@@ -1,24 +1,21 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Request } from 'express';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join, extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { getUploadsRoot } from '../../common/uploads-path';
 
 const ALLOWED = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const MAX_BYTES = 8 * 1024 * 1024;
 
 @Injectable()
 export class UploadsService {
-  private readonly dir = join(process.cwd(), 'uploads', 'vehicles');
-  private readonly avatarDir = join(process.cwd(), 'uploads', 'avatars');
+  private readonly dir = join(getUploadsRoot(), 'vehicles');
+  private readonly avatarDir = join(getUploadsRoot(), 'avatars');
 
   constructor() {
-    if (!existsSync(this.dir)) {
-      mkdirSync(this.dir, { recursive: true });
-    }
-    if (!existsSync(this.avatarDir)) {
-      mkdirSync(this.avatarDir, { recursive: true });
-    }
+    mkdirSync(this.dir, { recursive: true });
+    mkdirSync(this.avatarDir, { recursive: true });
   }
 
   saveAvatar(file: Express.Multer.File, req: Request) {
