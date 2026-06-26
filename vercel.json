@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm ci",
+  "installCommand": "npm ci --include=dev",
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
@@ -12,8 +12,5 @@
       "source": "/(.*)",
       "destination": "/api"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
