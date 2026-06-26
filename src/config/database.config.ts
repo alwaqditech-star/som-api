@@ -30,13 +30,33 @@ function envFlag(value?: string): boolean {
   return value?.trim().toLowerCase() === 'true';
 }
 
+function fromExplicitEnv(): DatabaseConfig | null {
+  if (!process.env.DB_HOST?.trim()) return null;
+
+  const host = process.env.DB_HOST.trim();
+  const explicitSsl = process.env.DB_SSL;
+  const ssl = envFlag(explicitSsl) || (!explicitSsl && isRemoteHost(host));
+
+  return {
+    host,
+    port: parseInt(process.env.DB_PORT ?? '5432', 10),
+    username: process.env.DB_USERNAME?.trim() ?? 'postgres',
+    password: String(process.env.DB_PASSWORD ?? ''),
+    database: process.env.DB_DATABASE?.trim() ?? 'railway',
+    ssl,
+  };
+}
+
 export function getDatabaseConfig(): DatabaseConfig {
+  const explicit = fromExplicitEnv();
+  if (explicit) return explicit;
+
   const databaseUrl = process.env.DATABASE_URL;
   const explicitSsl = process.env.DB_SSL;
 
   if (databaseUrl) {
     const parsed = parseDatabaseUrl(databaseUrl);
-    const database = process.env.DB_DATABASE || parsed.database;
+    const database = process.env.DB_DATABASE?.trim() || parsed.database;
     const ssl =
       envFlag(explicitSsl) ||
       (!explicitSsl &&
@@ -54,14 +74,14 @@ export function getDatabaseConfig(): DatabaseConfig {
     };
   }
 
-  const host = process.env.DB_HOST ?? 'shinkansen.proxy.rlwy.net';
+  const host = 'shinkansen.proxy.rlwy.net';
   const ssl = envFlag(explicitSsl) || (!explicitSsl && isRemoteHost(host));
 
   return {
     host,
     port: parseInt(process.env.DB_PORT ?? '37330', 10),
     username: process.env.DB_USERNAME ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? '',
+    password: String(process.env.DB_PASSWORD ?? ''),
     database: process.env.DB_DATABASE ?? 'railway',
     ssl,
   };

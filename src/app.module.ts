@@ -31,6 +31,7 @@ import { HealthController } from './health.controller';
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => {
         const useSsl = config.get<boolean>('database.ssl');
+        const isServerless = Boolean(process.env.VERCEL);
         return {
           type: 'postgres',
           host: config.get('database.host'),
@@ -42,6 +43,16 @@ import { HealthController } from './health.controller';
           synchronize: config.get('nodeEnv') === 'development' && !useSsl,
           logging: config.get('nodeEnv') === 'development',
           ssl: useSsl ? { rejectUnauthorized: false } : false,
+          retryAttempts: isServerless ? 2 : 10,
+          retryDelay: isServerless ? 1000 : 3000,
+          keepConnectionAlive: !isServerless,
+          extra: isServerless
+            ? {
+                max: 1,
+                connectionTimeoutMillis: 15000,
+                idleTimeoutMillis: 10000,
+              }
+            : undefined,
         };
       },
       inject: [ConfigService],
