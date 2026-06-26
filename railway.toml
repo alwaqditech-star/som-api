@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node dist/main.js"
+healthcheckPath = "/api/v1/categories/brands"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
