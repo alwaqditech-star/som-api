@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
@@ -36,6 +37,9 @@ export class FirebaseService implements OnModuleInit {
         this.app = initializeApp({
           credential: cert(serviceAccount),
           projectId: projectId ?? serviceAccount.project_id,
+          storageBucket:
+            this.configService.get<string>('firebase.storageBucket') ??
+            `${projectId ?? serviceAccount.project_id}.firebasestorage.app`,
         });
         this.logger.log('Firebase Admin initialized');
         return;
@@ -51,6 +55,9 @@ export class FirebaseService implements OnModuleInit {
             clientEmail,
             privateKey: privateKey.replace(/\\n/g, '\n'),
           }),
+          storageBucket:
+            this.configService.get<string>('firebase.storageBucket') ??
+            `${projectId}.firebasestorage.app`,
         });
         this.logger.log('Firebase Admin initialized from env');
         return;
@@ -127,5 +134,29 @@ export class FirebaseService implements OnModuleInit {
       avatarUrl: decoded.picture,
       emailVerified: decoded.email_verified ?? false,
     };
+  }
+
+  /** رفع ملف عام — يُستخدم للصور الدائمة (Vercel لا يحفظ /tmp) */
+  async uploadPublicFile(
+    folder: 'vehicles' | 'avatars',
+    filename: string,
+    buffer: Buffer,
+    contentType: string,
+  ): Promise<string | null> {
+    if (!this.app) return null;
+
+    const bucketName = this.configService.get<string>('firebase.storageBucket');
+    if (!bucketName) return null;
+
+    const objectPath = `uploads/${folder}/${filename}`;
+    const bucket = getStorage(this.app).bucket(bucketName);
+    const file = bucket.file(objectPath);
+
+    await file.save(buffer, {
+      metadata: { contentType, cacheControl: 'public, max-age=31536000' },
+      public: true,
+    });
+
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(objectPath)}?alt=media`;
   }
 }

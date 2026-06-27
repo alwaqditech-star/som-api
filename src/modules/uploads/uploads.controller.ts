@@ -46,7 +46,7 @@ export class UploadsController {
       limits: { fileSize: 8 * 1024 * 1024, files: 1 },
     }),
   )
-  uploadAvatar(
+  async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: Request,
   ) {

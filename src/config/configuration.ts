@@ -26,6 +26,8 @@ export default () => {
       serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY,
+      storageBucket:
+        process.env.FIREBASE_STORAGE_BUCKET ?? 'som-app-db20a.firebasestorage.app',
     },
   };
 };
