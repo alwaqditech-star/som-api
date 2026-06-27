@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, MoreThanOrEqual, IsNull } from 'typeorm';
@@ -20,7 +22,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ChatsService } from '../chats/chats.service';
 
 @Injectable()
-export class AuctionsService {
+export class AuctionsService implements OnModuleInit {
+  private readonly logger = new Logger(AuctionsService.name);
+  private interestTableReady = false;
+
   constructor(
     @InjectRepository(Auction)
     private auctionRepo: Repository<Auction>,
@@ -38,6 +43,36 @@ export class AuctionsService {
     private configService: ConfigService,
     private chatsService: ChatsService,
   ) {}
+
+  async onModuleInit() {
+    await this.ensureInterestReminderTable();
+  }
+
+  private async ensureInterestReminderTable() {
+    if (this.interestTableReady) return;
+    try {
+      await this.interestReminderRepo.query(`
+        CREATE TABLE IF NOT EXISTS auction_interest_reminders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL,
+          auction_id UUID NOT NULL,
+          remind_at TIMESTAMPTZ NOT NULL,
+          sent_at TIMESTAMPTZ,
+          cancelled BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (user_id, auction_id)
+        )
+      `);
+      await this.interestReminderRepo.query(`
+        CREATE INDEX IF NOT EXISTS idx_interest_reminders_due
+          ON auction_interest_reminders (remind_at)
+          WHERE cancelled = false AND sent_at IS NULL
+      `);
+      this.interestTableReady = true;
+    } catch (error) {
+      this.logger.warn('interest reminders table setup skipped', error);
+    }
+  }
 
   async create(dto: CreateAuctionDto, sellerId?: string) {
     const vehicle = await this.vehiclesService.findOne(dto.vehicleId);
@@ -521,7 +556,14 @@ export class AuctionsService {
   }
 
   /** جدولة تذكير من السيرفر — يُستدعى فور مغادرة المزاد بدون مزايدة */
-  async scheduleInterestReminder(auctionId: string, userId: string, delaySeconds = 30) {
+  async scheduleInterestReminder(auctionId: string, userId: string, delaySeconds?: number) {
+    await this.ensureInterestReminderTable();
+
+    const delay =
+      delaySeconds ??
+      this.configService.get<number>('auction.interestReminderDelaySeconds') ??
+      30;
+
     const auction = await this.findOne(auctionId);
     if (auction.status !== AuctionStatus.LIVE) {
       return { scheduled: false, reason: 'not_live' };
@@ -534,7 +576,7 @@ export class AuctionsService {
       return { scheduled: false, reason: 'already_bid' };
     }
 
-    const remindAt = new Date(Date.now() + delaySeconds * 1000);
+    const remindAt = new Date(Date.now() + delay * 1000);
     await this.interestReminderRepo.upsert(
       {
         userId,
@@ -546,10 +588,15 @@ export class AuctionsService {
       ['userId', 'auctionId'],
     );
 
+    this.logger.log(
+      `Interest reminder scheduled for user ${userId} auction ${auctionId} at ${remindAt.toISOString()}`,
+    );
+
     return { scheduled: true, remindAt };
   }
 
   async cancelInterestReminder(auctionId: string, userId: string) {
+    await this.ensureInterestReminderTable();
     await this.interestReminderRepo.update(
       { userId, auctionId },
       { cancelled: true },
@@ -559,6 +606,7 @@ export class AuctionsService {
 
   /** يُستدعى من Vercel Cron كل دقيقة */
   async processDueInterestReminders() {
+    await this.ensureInterestReminderTable();
     const due = await this.interestReminderRepo.find({
       where: {
         cancelled: false,

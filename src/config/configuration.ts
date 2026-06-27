@@ -20,6 +20,10 @@ export default () => {
         process.env.AUCTION_MIN_DEPOSIT_PERCENT ?? '5',
         10,
       ),
+      interestReminderDelaySeconds: parseInt(
+        process.env.INTEREST_REMINDER_DELAY_SECONDS ?? '30',
+        10,
+      ),
     },
     firebase: {
       projectId: process.env.FIREBASE_PROJECT_ID,

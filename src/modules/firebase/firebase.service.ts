@@ -101,11 +101,27 @@ export class FirebaseService implements OnModuleInit {
         data: payload.data ?? {},
         android: {
           priority: 'high',
+          ttl: 86400000,
           notification: {
             channelId: 'som_auctions_high',
             priority: 'max',
             defaultSound: true,
             defaultVibrateTimings: true,
+            visibility: 'public',
+          },
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: payload.title,
+                body: payload.body,
+              },
+              sound: 'default',
+            },
           },
         },
       });

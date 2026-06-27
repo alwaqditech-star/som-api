@@ -87,7 +87,11 @@ export class AuctionsController {
     @CurrentUser('id') userId: string,
     @Body() body?: { delaySeconds?: number },
   ) {
-    return this.auctionsService.scheduleInterestReminder(id, userId, body?.delaySeconds ?? 30);
+    return this.auctionsService.scheduleInterestReminder(
+      id,
+      userId,
+      body?.delaySeconds,
+    );
   }
 
   @ApiBearerAuth()

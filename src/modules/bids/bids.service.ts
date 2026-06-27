@@ -112,6 +112,8 @@ export class BidsService {
       previousWinnerId: previousWinningBid?.bidderId,
     };
 
+    await this.auctionsService.cancelInterestReminder(auctionId, bidderId);
+
     this.auctionGateway.broadcastBidPlaced(result);
 
     return result;

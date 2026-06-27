@@ -136,15 +136,42 @@ export class AuctionGateway implements OnGatewayConnection, OnGatewayDisconnect,
 
   async handleDisconnect(client: AuthenticatedSocket) {
 
-    const rooms = [...client.rooms].filter((room) => room !== client.id);
+    const rooms = [...client.rooms].filter(
+      (room) => room !== client.id && !room.startsWith('user:'),
+    );
 
     for (const roomId of rooms) {
 
       await this.syncAndBroadcast(roomId);
 
+      if (client.userId) {
+
+        await this.scheduleInterestOnLeave(roomId, client.userId);
+
+      }
+
     }
 
     this.logger.log(`Client disconnected: ${client.id}`);
+
+  }
+
+
+
+  private async scheduleInterestOnLeave(auctionId: string, userId: string) {
+
+    const delay =
+      this.configService.get<number>('auction.interestReminderDelaySeconds') ?? 30;
+
+    try {
+
+      await this.auctionsService.scheduleInterestReminder(auctionId, userId, delay);
+
+    } catch (error) {
+
+      this.logger.warn(`Interest reminder schedule failed: ${error}`);
+
+    }
 
   }
 
@@ -215,6 +242,12 @@ export class AuctionGateway implements OnGatewayConnection, OnGatewayDisconnect,
 
 
     await this.leaveOtherAuctionRooms(client, auctionId);
+
+    if (client.userId) {
+
+      await this.auctionsService.cancelInterestReminder(auctionId, client.userId);
+
+    }
 
     await client.join(auctionId);
 
@@ -295,6 +328,14 @@ export class AuctionGateway implements OnGatewayConnection, OnGatewayDisconnect,
     }
 
     await this.syncAndBroadcast(auctionId);
+
+
+
+    if (client.userId) {
+
+      await this.scheduleInterestOnLeave(auctionId, client.userId);
+
+    }
 
 
 
