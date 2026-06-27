@@ -79,6 +79,31 @@ export class AuctionsController {
     return this.auctionsService.getContactInfo(id, userId, role);
   }
 
+  @ApiBearerAuth()
+  @Post(':id/interest-reminder/schedule')
+  @ApiOperation({ summary: 'جدولة «هل ما زلت مهتماً؟» بعد مغادرة بدون مزايدة' })
+  scheduleInterestReminder(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() body?: { delaySeconds?: number },
+  ) {
+    return this.auctionsService.scheduleInterestReminder(id, userId, body?.delaySeconds ?? 30);
+  }
+
+  @ApiBearerAuth()
+  @Post(':id/interest-reminder/cancel')
+  @ApiOperation({ summary: 'إلغاء تذكير الاهتمام بالمزاد' })
+  cancelInterestReminder(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.auctionsService.cancelInterestReminder(id, userId);
+  }
+
+  @ApiBearerAuth()
+  @Post(':id/interest-reminder')
+  @ApiOperation({ summary: 'إشعار «هل ما زلت مهتماً؟» بعد مشاهدة بدون مزايدة' })
+  sendInterestReminder(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.auctionsService.sendInterestReminder(id, userId);
+  }
+
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'تفاصيل مزاد' })

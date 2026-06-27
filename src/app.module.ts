@@ -18,6 +18,7 @@ import { AuctionGatewayModule } from './modules/auctions/auction-gateway.module'
 import { FirebaseModule } from './modules/firebase/firebase.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ChatsModule } from './modules/chats/chats.module';
+import { CronModule } from './modules/cron/cron.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -27,6 +28,7 @@ import { HealthController } from './health.controller';
     FirebaseModule,
     UploadsModule,
     ChatsModule,
+    CronModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => {

@@ -5,11 +5,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, LessThanOrEqual, MoreThanOrEqual, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Auction } from './entities/auction.entity';
 import { AuctionParticipant } from './entities/auction-participant.entity';
 import { Watchlist } from './entities/watchlist.entity';
+import { AuctionInterestReminder } from './entities/auction-interest-reminder.entity';
 import { Bid } from '../bids/entities/bid.entity';
 import { AuctionStatus, VehicleStatus, BidStatus, NotificationType, UserRole } from '../../common/enums';
 import { CreateAuctionDto, UpdateAuctionDto, AuctionQueryDto } from './dto/auction.dto';
@@ -29,6 +30,8 @@ export class AuctionsService {
     private watchlistRepo: Repository<Watchlist>,
     @InjectRepository(Bid)
     private bidRepo: Repository<Bid>,
+    @InjectRepository(AuctionInterestReminder)
+    private interestReminderRepo: Repository<AuctionInterestReminder>,
     private vehiclesService: VehiclesService,
     private walletsService: WalletsService,
     private notificationsService: NotificationsService,
@@ -515,5 +518,97 @@ export class AuctionsService {
         await this.finalizeAuction(auction.id);
       }
     }
+  }
+
+  /** جدولة تذكير من السيرفر — يُستدعى فور مغادرة المزاد بدون مزايدة */
+  async scheduleInterestReminder(auctionId: string, userId: string, delaySeconds = 30) {
+    const auction = await this.findOne(auctionId);
+    if (auction.status !== AuctionStatus.LIVE) {
+      return { scheduled: false, reason: 'not_live' };
+    }
+
+    const bidCount = await this.bidRepo.count({
+      where: { auctionId, bidderId: userId },
+    });
+    if (bidCount > 0) {
+      return { scheduled: false, reason: 'already_bid' };
+    }
+
+    const remindAt = new Date(Date.now() + delaySeconds * 1000);
+    await this.interestReminderRepo.upsert(
+      {
+        userId,
+        auctionId,
+        remindAt,
+        cancelled: false,
+        sentAt: null,
+      },
+      ['userId', 'auctionId'],
+    );
+
+    return { scheduled: true, remindAt };
+  }
+
+  async cancelInterestReminder(auctionId: string, userId: string) {
+    await this.interestReminderRepo.update(
+      { userId, auctionId },
+      { cancelled: true },
+    );
+    return { cancelled: true };
+  }
+
+  /** يُستدعى من Vercel Cron كل دقيقة */
+  async processDueInterestReminders() {
+    const due = await this.interestReminderRepo.find({
+      where: {
+        cancelled: false,
+        sentAt: IsNull(),
+        remindAt: LessThanOrEqual(new Date()),
+      },
+    });
+
+    let sent = 0;
+    for (const row of due) {
+      try {
+        const result = await this.sendInterestReminder(row.auctionId, row.userId);
+        if (result.sent) {
+          row.sentAt = new Date();
+          await this.interestReminderRepo.save(row);
+          sent++;
+        } else {
+          row.cancelled = true;
+          await this.interestReminderRepo.save(row);
+        }
+      } catch {
+        // يُعاد المحاولة في الدورة التالية
+      }
+    }
+
+    return { processed: due.length, sent };
+  }
+
+  /** إشعار «هل ما زلت مهتماً؟» — يُستدعى بعد مغادرة المزاد بدون مزايدة */
+  async sendInterestReminder(auctionId: string, userId: string) {
+    const auction = await this.findOne(auctionId);
+    if (auction.status !== AuctionStatus.LIVE) {
+      return { sent: false, reason: 'not_live' };
+    }
+
+    const bidCount = await this.bidRepo.count({
+      where: { auctionId, bidderId: userId },
+    });
+    if (bidCount > 0) {
+      return { sent: false, reason: 'already_bid' };
+    }
+
+    await this.notificationsService.create({
+      userId,
+      type: NotificationType.AUCTION_INTEREST,
+      title: 'هل ما زلت مهتماً؟',
+      message: `مزاد «${auction.title}» لا يزال مباشراً — اضغط للعودة والمزايدة`,
+      data: { auctionId, type: 'auction_interest' },
+    });
+
+    return { sent: true };
   }
 }

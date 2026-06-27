@@ -89,4 +89,5 @@ export enum NotificationType {
   DEPOSIT_RECEIVED = 'deposit_received',
   VEHICLE_APPROVED = 'vehicle_approved',
   SYSTEM = 'system',
+  AUCTION_INTEREST = 'auction_interest',
 }

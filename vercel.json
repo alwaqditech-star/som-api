@@ -1,6 +1,12 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm ci --include=dev",
+  "crons": [
+    {
+      "path": "/api/v1/cron/interest-reminders",
+      "schedule": "* * * * *"
+    }
+  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 60,

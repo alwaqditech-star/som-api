@@ -46,6 +46,24 @@ export class AuctionSchedulerService {
 
 
 
+  @Cron(CronExpression.EVERY_30_SECONDS)
+
+  async processInterestReminders() {
+
+    try {
+
+      await this.auctionsService.processDueInterestReminders();
+
+    } catch (error) {
+
+      this.logger.warn('Interest reminders sync failed', error);
+
+    }
+
+  }
+
+
+
   /** تصحيح عداد المشاهدين من غرف Socket (يتعامل مع التطبيقات المغلقة فجأة) */
 
   @Cron(CronExpression.EVERY_30_SECONDS)

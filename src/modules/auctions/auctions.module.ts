@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Auction } from './entities/auction.entity';
 import { AuctionParticipant } from './entities/auction-participant.entity';
 import { Watchlist } from './entities/watchlist.entity';
+import { AuctionInterestReminder } from './entities/auction-interest-reminder.entity';
 import { Bid } from '../bids/entities/bid.entity';
 import { AuctionsService } from './auctions.service';
 import { AuctionsController } from './auctions.controller';
@@ -15,7 +16,7 @@ import { ChatsModule } from '../chats/chats.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Auction, AuctionParticipant, Watchlist, Bid]),
+    TypeOrmModule.forFeature([Auction, AuctionParticipant, Watchlist, Bid, AuctionInterestReminder]),
     VehiclesModule,
     WalletsModule,
     NotificationsModule,
