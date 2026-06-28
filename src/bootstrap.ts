@@ -4,6 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { NextFunction, Request, Response } from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { getUploadsRoot } from './common/uploads-path';
+import { registerShareRoutes } from './share/share-page';
 
 export async function configureApp(app: NestExpressApplication): Promise<void> {
   const uploadsPath = getUploadsRoot();
@@ -54,6 +55,7 @@ export async function configureApp(app: NestExpressApplication): Promise<void> {
   SwaggerModule.setup('api/docs', app, document);
 
   const http = app.getHttpAdapter().getInstance();
+  registerShareRoutes(http);
   http.get('/', (_req: Request, res: Response) => {
     res.json({ status: 'ok', api: '/api/v1', docs: '/api/docs' });
   });
