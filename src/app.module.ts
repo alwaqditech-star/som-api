@@ -19,6 +19,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { CronModule } from './modules/cron/cron.module';
+import { ShareModule } from './share/share.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     UploadsModule,
     ChatsModule,
     CronModule,
+    ShareModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => {

@@ -1,4 +1,5 @@
-import { Express, Request, Response } from 'express';
+import { Injectable } from '@nestjs/common';
+import { Request, Response } from 'express';
 
 interface ShareAuction {
   id: string;
@@ -7,53 +8,53 @@ interface ShareAuction {
   currentPrice: string | number;
   vehicle?: {
     images?: { url: string; isPrimary?: boolean }[];
-    brand?: { nameAr?: string };
-    model?: string;
-    year?: number;
   };
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+@Injectable()
+export class ShareService {
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
-function pickImage(auction: ShareAuction): string | null {
-  const images = auction.vehicle?.images ?? [];
-  if (images.length === 0) return null;
-  const primary = images.find((i) => i.isPrimary) ?? images[0];
-  return primary?.url ?? null;
-}
+  private pickImage(auction: ShareAuction): string | null {
+    const images = auction.vehicle?.images ?? [];
+    if (images.length === 0) return null;
+    const primary = images.find((i) => i.isPrimary) ?? images[0];
+    return primary?.url ?? null;
+  }
 
-function formatPrice(value: string | number): string {
-  const n = Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return `${n.toLocaleString('ar-SA')} ر.س`;
-}
+  private formatPrice(value: string | number): string {
+    const n = Number(value);
+    if (Number.isNaN(n)) return String(value);
+    return `${n.toLocaleString('ar-SA')} ر.س`;
+  }
 
-function renderSharePage(auction: ShareAuction, shareUrl: string, appSchemeUrl: string): string {
-  const title = escapeHtml(auction.title);
-  const price = escapeHtml(formatPrice(auction.currentPrice));
-  const live = auction.status === 'live';
-  const image = pickImage(auction);
-  const imageTag = image ? escapeHtml(image) : '';
-  const description = live
-    ? `مزاد مباشر — السعر الحالي ${price}`
-    : `السعر الحالي ${price}`;
+  private renderHtml(auction: ShareAuction, shareUrl: string, appSchemeUrl: string): string {
+    const title = this.escapeHtml(auction.title);
+    const price = this.escapeHtml(this.formatPrice(auction.currentPrice));
+    const live = auction.status === 'live';
+    const image = this.pickImage(auction);
+    const imageTag = image ? this.escapeHtml(image) : '';
+    const description = live
+      ? `مزاد مباشر — السعر الحالي ${price}`
+      : `السعر الحالي ${price}`;
+    const auctionId = this.escapeHtml(auction.id);
 
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>${title} — SOM</title>
   <meta property="og:type" content="website"/>
-  <meta property="og:url" content="${escapeHtml(shareUrl)}"/>
+  <meta property="og:url" content="${this.escapeHtml(shareUrl)}"/>
   <meta property="og:title" content="${title}"/>
-  <meta property="og:description" content="${escapeHtml(description)}"/>
+  <meta property="og:description" content="${this.escapeHtml(description)}"/>
   ${image ? `<meta property="og:image" content="${imageTag}"/>` : ''}
   <meta name="twitter:card" content="summary_large_image"/>
   <style>
@@ -76,7 +77,6 @@ function renderSharePage(auction: ShareAuction, shareUrl: string, appSchemeUrl: 
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 20px;
       overflow: hidden;
-      backdrop-filter: blur(8px);
     }
     .hero {
       height: 200px;
@@ -119,29 +119,36 @@ function renderSharePage(auction: ShareAuction, shareUrl: string, appSchemeUrl: 
       ${live ? '<span class="live">🔴 مباشر الآن</span>' : ''}
       <h1>${title}</h1>
       <div class="price">${price}</div>
-      <button class="btn" id="openApp">افتح المزاد في تطبيق SOM</button>
-      <p class="hint">إذا لم يفتح التطبيق تلقائياً، اضغط الزر أعلاه</p>
+      <a class="btn" id="openApp" href="${this.escapeHtml(appSchemeUrl)}">افتح المزاد في تطبيق SOM</a>
+      <p class="hint">جاري فتح التطبيق… إذا لم يفتح، اضغط الزر</p>
     </div>
   </div>
   <script>
-    const appUrl = ${JSON.stringify(appSchemeUrl)};
-    const webUrl = ${JSON.stringify(shareUrl)};
-    function openApp() {
-      window.location.href = appUrl;
-      setTimeout(function () {
-        window.location.href = 'intent://auction/${escapeHtml(auction.id)}#Intent;scheme=som;package=com.example.som;S.browser_fallback_url=' + encodeURIComponent(webUrl) + ';end';
-      }, 600);
-    }
-    document.getElementById('openApp').addEventListener('click', openApp);
-    setTimeout(openApp, 400);
+    (function () {
+      var appUrl = ${JSON.stringify(appSchemeUrl)};
+      var webUrl = ${JSON.stringify(shareUrl)};
+      var auctionId = ${JSON.stringify(auction.id)};
+      function openApp() {
+        window.location.href = appUrl;
+        setTimeout(function () {
+          window.location.href =
+            'intent://auction/' + auctionId +
+            '#Intent;scheme=som;package=com.example.som;S.browser_fallback_url=' +
+            encodeURIComponent(webUrl) + ';end';
+        }, 800);
+      }
+      document.getElementById('openApp').addEventListener('click', function (e) {
+        e.preventDefault();
+        openApp();
+      });
+      openApp();
+    })();
   </script>
 </body>
 </html>`;
-}
+  }
 
-export function registerShareRoutes(http: Express): void {
-  http.get('/share/auction/:id', async (req: Request, res: Response) => {
-    const { id } = req.params;
+  async sendAuctionPage(id: string, req: Request, res: Response): Promise<void> {
     const host = req.get('host') ?? 'som-api.vercel.app';
     const proto = req.get('x-forwarded-proto') ?? 'https';
     const origin = `${proto}://${host}`;
@@ -153,17 +160,27 @@ export function registerShareRoutes(http: Express): void {
         headers: { Accept: 'application/json' },
       });
       if (!apiRes.ok) {
-        res.status(404).type('html').send('<html lang="ar" dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:40px"><h1>المزاد غير موجود</h1></body></html>');
+        res
+          .status(404)
+          .type('html')
+          .send(
+            '<html lang="ar" dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:40px"><h1>المزاد غير موجود</h1></body></html>',
+          );
         return;
       }
       const auction = (await apiRes.json()) as ShareAuction;
-      res.type('html').send(renderSharePage(auction, shareUrl, appSchemeUrl));
+      res.type('html').send(this.renderHtml(auction, shareUrl, appSchemeUrl));
     } catch {
-      res.status(500).type('html').send('<html lang="ar" dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:40px"><h1>تعذّر تحميل المزاد</h1></body></html>');
+      res
+        .status(500)
+        .type('html')
+        .send(
+          '<html lang="ar" dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:40px"><h1>تعذّر تحميل المزاد</h1></body></html>',
+        );
     }
-  });
+  }
 
-  http.get('/.well-known/assetlinks.json', (_req: Request, res: Response) => {
+  sendAssetLinks(res: Response): void {
     res.json([
       {
         relation: ['delegate_permission/common.handle_all_urls'],
@@ -174,5 +191,5 @@ export function registerShareRoutes(http: Express): void {
         },
       },
     ]);
-  });
+  }
 }
